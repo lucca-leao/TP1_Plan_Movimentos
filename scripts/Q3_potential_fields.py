@@ -32,15 +32,15 @@ d = 0.80
 
 # Ganho atrativo e repulsivo
 global Ka, Kr
-Ka = 1.0
-Kr = 30.0
+Ka = 1
+Kr = 1000.0
 
 global v_fw, w_z
 v_fw = 0.0
 w_z = 0.0
 
 global min_d
-min_d = 5.0
+min_d = 14.0
 
 # Rotina callback para a obtencao da pose do robo
 def callback_pose(data):
@@ -112,7 +112,6 @@ def feedback_linearization(Ux, Uy):
 
 # Rotina primaria
 def example():
-    global freq
     global x_n, y_n, theta_n
     global pub_rviz_ref, pub_rviz_pose
     global x_goal, y_goal

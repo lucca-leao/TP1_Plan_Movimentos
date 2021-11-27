@@ -7,7 +7,7 @@ define block model
 define topurg ranger
 (
 	sensor( 			
-    range [ 0.0  10.0 ]
+    range [ 0.0  5.0 ]
     fov 270.25
    samples 270
   )
@@ -22,10 +22,10 @@ define erratic position
 
   size [0.550 0.550 0.250]
 
-  origin [-0.050 0.000 0.000 0.000]
+  origin [0.000 0.000 0.000 0.000]
   gui_nose 1
   drive "diff"
-  topurg(pose [ 0.050 0.000 0.000 0.000 ])
+  topurg(pose [ 0.000 0.000 0.000 0.000 ])
 )
 
 
@@ -84,9 +84,9 @@ floorplan
   name "my_map"
   bitmap "map_1.png"
   size [60.000 60.000 0.500]
-  pose [ 0.000 0.000 0.000 0.000 ] #[x y ? theta]
+  pose [ 30.000 -30.000 0.000 0.000 ] #[x y ? theta]
 )
 
 # throw in a robot
-erratic( pose [ -5.000 -20.000 0.000 0.000 ] name "my_robot" color "blue")
+erratic( pose [ 20.786 -40.1234 0.000 0.000 ] name "my_robot" color "blue")
 #block( pose [ -13.000 18.000 0.000 180.000 ] name "my_goal" color "red")
