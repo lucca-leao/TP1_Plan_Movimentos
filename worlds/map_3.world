@@ -7,7 +7,7 @@ define block model
 define topurg ranger
 (
 	sensor( 			
-    range [ 0.0  15.0 ]
+    range [ 0.0  8.0 ]
     fov 270.25
    samples 270
   )
@@ -82,11 +82,11 @@ window
 floorplan
 ( 
   name "my_map"
-  bitmap "map_1.png"
+  bitmap "map_3.png"
   size [60.000 60.000 0.500]
   pose [ 30.000 -30.000 0.000 0.000 ] #[x y ? theta]
 )
 
 # throw in a robot
-erratic( pose [ 20.786 -40.1234 0.000 0.000 ] name "my_robot" color "blue")
+erratic( pose [ 12.000 -32.000 0.000 0.000 ] name "my_robot" color "blue")
 #block( pose [ -13.000 18.000 0.000 180.000 ] name "my_goal" color "red")
