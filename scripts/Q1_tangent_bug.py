@@ -43,6 +43,9 @@ w_z = 0.0
 global goToGoal
 goToGoal = False
 
+global L
+L = 2.0
+
 # Rotina callback para a obtencao da pose do robo
 def callback_pose(data):
     global x_n, y_n, theta_n
@@ -61,8 +64,9 @@ def calcDistance(x_n, y_n, x_d, y_d):
 
 
 def callback_laser(data):
-    global v_fw, w_z, x_goal, y_goal, x_n, y_n
+    global v_fw, w_z, x_goal, y_goal, x_n, y_n, L, inflation
     laserData = []
+    discontinuities = []
     angle_increment = np.around(data.angle_increment,4)
     angle_min = data.angle_min
     for index in range(len(data.ranges)):
@@ -72,8 +76,18 @@ def callback_laser(data):
         y = rho*np.sin(theta) + y_n
         d_followed = calcDistance(x,y,x_goal,y_goal)
         laserData.append((rho, theta, x, y, d_followed))
-        print(x,y)
-    heuristic(laserData)
+        if((abs(data.ranges[index]-data.ranges[index-1]) > L) and index > 0):
+            if(data.ranges[index] > data.ranges[index-1]):
+                discontinuities.append(laserData[index])
+                print(discontinuities)
+            else:
+                discontinuities.append(laserData[index-1])
+                print(discontinuities)
+                print(len(discontinuities))
+    if(len(discontinuities) > 0):
+        heuristic(discontinuities)
+    else:
+        heuristic(laserData)
     #print(v_fw, w_z)
 
 def heuristic(laserData):
@@ -89,7 +103,7 @@ def heuristic(laserData):
             minDist = dist
             minIdx = i
 
-    print('Idx:',minIdx, ' laser XY: ', laserData[minIdx][2], laserData[minIdx][3])
+    #print('Idx:',minIdx, ' laser XY: ', laserData[minIdx][2], laserData[minIdx][3])
     if(goToGoal):
         print('goToGoal')
         [x_ref, y_ref, Vx_ref, Vy_ref] = refference_trajectory(x_goal, y_goal)

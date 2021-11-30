@@ -7,7 +7,7 @@ define block model
 define topurg ranger
 (
 	sensor( 			
-    range [ 0.0  8.0 ]
+    range [ 0.0  10.0 ]
     fov 270.25
    samples 270
   )
@@ -88,5 +88,5 @@ floorplan
 )
 
 # throw in a robot
-erratic( pose [ 12.000 -32.000 0.000 0.000 ] name "my_robot" color "blue")
+erratic( pose [ 18.000 -30.000 0.000 0.000 ] name "my_robot" color "blue")
 #block( pose [ -13.000 18.000 0.000 180.000 ] name "my_goal" color "red")
