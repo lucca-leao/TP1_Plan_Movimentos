@@ -46,6 +46,15 @@ goToGoal = False
 global L
 L = 2.0
 
+global state
+state = 'MOVE_TO_GOAL'
+
+global max_range
+max_range = 10.0
+
+global min_heuristic
+min_heuristic = 10000.0
+
 # Rotina callback para a obtencao da pose do robo
 def callback_pose(data):
     global x_n, y_n, theta_n
@@ -62,56 +71,124 @@ def callback_pose(data):
 def calcDistance(x_n, y_n, x_d, y_d):
     return sqrt(((x_d - x_n)**2 + (y_d - y_n)**2))
 
+def calcAttractiveForce(x_goal, y_ghoal):
+    Ka = 1.0
+    dx = x_goal - x_n
+    dy = y_goal - y_n
+    rho = np.array([dx,dy])
+    norm_rho = np.sqrt(dx**2 + dy**2)
+    if(norm_rho <= 0.5):
+        attr_force = Ka*rho
+    else:
+        attr_force = Ka*rho/norm_rho
+    return attr_force
+
+def isGoalFree(laserData):
+    global x_goal, y_goal, x_n, y_n
+    goal_angle = atan2(y_goal - y_n, x_n - x_goal)
+    print(goal_angle)
+    for i in range(len(laserData.ranges)):
+        angle = laserData.angle_increment*i + laserData.angle_min
+        if np.around(angle, 2) == np.around(goal_angle, 2):
+            if(laserData.ranges[i] == laserData.range_max):
+                return True
+            else:
+                return False
+
+def calcRepulsiveForces(laserData):
+    global Kr, min_d
+    Kr = 10000.0
+    min_d = 4.0
+    #print(laserData)
+    rep_force = np.array([0.0,0.0])
+    for dist, theta, x, y, d in laserData:
+        if dist <= min_d:
+            fx = Kr*(2*x*(min_d - dist)/(min_d*dist**4))
+            fy = Kr*(2*y*(min_d - dist)/(min_d*dist**4))
+            #fx = Kr*(1/(range**2))
+            #fy = Kr*(1/(range**2))
+            #print("fx",fx, "fy ",fy)
+            #rep_force[0] += 
+            #rep_force[1] += rep_force[1]+fy
+            rep_force[0] = fx
+            rep_force[1] = fy
+    return rep_force
+
+def getLaserInfo(rho, angle_increment, angle_min, index):
+    global x_n, y_n, x_goal, y_goal
+    theta = index*angle_increment + angle_min + pi
+    x = rho*np.cos(theta) + x_n
+    y = rho*np.sin(theta) + y_n
+    d_followed = calcDistance(x,y,x_goal,y_goal)
+    return (rho, theta, x, y, d_followed)
 
 def callback_laser(data):
-    global v_fw, w_z, x_goal, y_goal, x_n, y_n, L, inflation
+    global v_fw, w_z, x_goal, y_goal, x_n, y_n, L, inflation, state, max_range
     laserData = []
     discontinuities = []
     angle_increment = np.around(data.angle_increment,4)
     angle_min = data.angle_min
-    for index in range(len(data.ranges)):
+    max_range = data.range_max
+    print('isGoalFree', isGoalFree(data))
+    for index in range(len(data.ranges)-1):
         rho = data.ranges[index]
         theta = index*angle_increment + angle_min
-        x = rho*np.cos(theta) + x_n
-        y = rho*np.sin(theta) + y_n
-        d_followed = calcDistance(x,y,x_goal,y_goal)
-        laserData.append((rho, theta, x, y, d_followed))
-        if((abs(data.ranges[index]-data.ranges[index-1]) > L) and index > 0):
-            if(data.ranges[index] > data.ranges[index-1]):
-                discontinuities.append(laserData[index])
-                print(discontinuities)
-            else:
-                discontinuities.append(laserData[index-1])
-                print(discontinuities)
-                print(len(discontinuities))
+        laserInfo = getLaserInfo(data.ranges[index+1], data.angle_increment, data.angle_min, index+1)
+        #laserData.append((rho, theta, x, y, d_followed))
+        if(data.ranges[index] != max_range):
+            if(data.ranges[index+1] < data.ranges[index]):
+                discontinuities.append(getLaserInfo(data.ranges[index+1], data.angle_increment, data.angle_min, index+1))
+            elif(data.ranges[index-1] < data.ranges[index]):
+                discontinuities.append(getLaserInfo(data.ranges[index-1], data.angle_increment, data.angle_min, index-1))
     if(len(discontinuities) > 0):
-        heuristic(discontinuities)
+        #print(discontinuities)
+        state = 'MOVE_TO_O'
+        heuristic(discontinuities, False)
     else:
-        heuristic(laserData)
+        state = 'MOVE_TO_GOAL'
+        heuristic(laserData, True)
     #print(v_fw, w_z)
 
-def heuristic(laserData):
-    global Kp, Usat, v_fw, w_z, x_goal, y_goal, goToGoal
-    minDist = laserData[0][0] + laserData[0][4]
-    minIdx = 0
-    for i in range(len(laserData)):
-        dist = laserData[i][0] + laserData[i][4]
-        if(laserData[i][2] < x_goal + 0.2 and laserData[i][2] > x_goal - 0.2 and laserData[i][3] < y_goal + 0.2 and laserData[i][3] > y_goal - 0.2):
-            goToGoal = True
-        #print('i:', i, 'dist: ',dist)
-        if(dist < minDist):
-            minDist = dist
-            minIdx = i
-
-    #print('Idx:',minIdx, ' laser XY: ', laserData[minIdx][2], laserData[minIdx][3])
-    if(goToGoal):
-        print('goToGoal')
-        [x_ref, y_ref, Vx_ref, Vy_ref] = refference_trajectory(x_goal, y_goal)
+def heuristic(laserData, moveToGoal):
+    global Kp, Usat, v_fw, w_z, x_goal, y_goal, goToGoal, min_heuristic
+    if(not moveToGoal):
+        #print('moveToO')
+        minDist = laserData[0][4]
+        minIdx = 0
+        for i in range(len(laserData)):
+            dist = laserData[i][0] + laserData[i][4]
+            if(laserData[i][2] < x_goal + 0.2 and laserData[i][2] > x_goal - 0.2 and laserData[i][3] < y_goal + 0.2 and laserData[i][3] > y_goal - 0.2):
+                goToGoal = True
+            #print('i:', i, 'dist: ',dist)
+            if(dist < minDist):
+                minDist = dist
+                minIdx = i
+        if(minDist < min_heuristic):
+            min_heuristic = minDist
+        if(goToGoal):
+            #[x_ref, y_ref, Vx_ref, Vy_ref] = refference_trajectory(x_goal, y_goal)
+            x_ref = x_goal
+            y_ref = y_goal
+            #print('goToGoal')
+        else:
+            #print('goToLaser: ', laserData[minIdx][2], laserData[minIdx][3])
+            #[x_ref, y_ref, Vx_ref, Vy_ref] = refference_trajectory(laserData[minIdx][2], laserData[minIdx][3])
+            x_ref = laserData[minIdx][2]
+            y_ref = laserData[minIdx][3]
+        #print(x_ref, y_ref)
+        attr_force = calcAttractiveForce(x_ref, y_ref)
+        rep_force = calcRepulsiveForces(laserData)
+        Vx_r = attr_force[0] + rep_force[0]
+        Vy_r = attr_force[1] + rep_force[1]
+        [v_fw, w_z] = feedback_linearization(Vx_r, Vy_r)
     else:
-        print('goToLaser')
-        [x_ref, y_ref, Vx_ref, Vy_ref] = refference_trajectory(laserData[minIdx][2], laserData[minIdx][3])
-    [Ux, Uy] = trajectory_controller(x_ref, y_ref, Vx_ref, Vy_ref, Kp, Usat)
-    [v_fw, w_z] = feedback_linearization(Ux, Uy)
+        attr_force = calcAttractiveForce(x_goal, y_goal)
+        rep_force = calcRepulsiveForces(laserData)
+        Vx_r = attr_force[0] + rep_force[0]
+        Vy_r = attr_force[1] + rep_force[1]
+        [v_fw, w_z] = feedback_linearization(Vx_r, Vy_r)
+    #print('Idx:',minIdx, ' laser XY: ', laserData[minIdx][2], laserData[minIdx][3])
+    
 
 
 
@@ -168,7 +245,7 @@ def example():
 
         vel.linear.x = v_fw
         vel.angular.z = w_z
-        pub_stage.publish(vel)
+        #pub_stage.publish(vel)
 
         #Espera por um tempo de forma a manter a frequencia desejada
         rate.sleep()
