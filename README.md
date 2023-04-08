@@ -8,7 +8,7 @@ roscore
 ```
 - Open a new terminal and run:
 ```
-cd src
+cd scripts
 ```
 - To start the simulation, open a new terminal and run :
 ```
